@@ -236,7 +236,7 @@ impl ReviewSession {
 mod tests {
     use super::*;
     use crate::model::comment::{Comment, CommentType};
-    use crate::model::{DiffHunk, DiffLine, LineOrigin};
+    use crate::model::{DiffHunk, DiffLine, LineColoring, LineOrigin};
 
     // Arbitrary hash value for tests that don't care about the specific hash.
     const SOME_HASH: u64 = 0xdeadbeef;
@@ -258,7 +258,7 @@ mod tests {
                 content: content.to_string(),
                 old_lineno: Some(new_start),
                 new_lineno: Some(new_start),
-                highlighted_spans: None,
+                coloring: LineColoring::Pending,
             }],
             old_start: new_start,
             old_count: 1,
