@@ -141,7 +141,7 @@ fn display_identity(key: &FileIdentity) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{DiffHunk, DiffLine, LineOrigin};
+    use crate::model::{DiffHunk, DiffLine, LineColoring, LineOrigin};
     use crate::vcs::traits::comparison_extension;
     use std::path::{Path, PathBuf};
 
@@ -157,7 +157,7 @@ mod tests {
                 content: content.to_string(),
                 old_lineno: None,
                 new_lineno: Some(new_start),
-                highlighted_spans: None,
+                coloring: LineColoring::Pending,
             }],
             old_start,
             old_count: 1,

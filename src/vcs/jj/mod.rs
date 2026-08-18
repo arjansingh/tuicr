@@ -140,16 +140,12 @@ impl JjBackend {
         Cow::Owned(args_with_whitespace)
     }
 
-    fn load_diff(
-        &self,
-        diff_args: &[&str],
-        highlighter: &SyntaxHighlighter,
-    ) -> Result<Vec<DiffFile>> {
+    fn load_diff(&self, diff_args: &[&str]) -> Result<Vec<DiffFile>> {
         let mut snapshot_done = false;
         materialize_diff(&self.whitespace_mode, |comparison| {
             let ignore_working_copy = snapshot_done;
             snapshot_done = true;
-            self.load_diff_with_comparison(diff_args, comparison, highlighter, ignore_working_copy)
+            self.load_diff_with_comparison(diff_args, comparison, ignore_working_copy)
         })
     }
 
@@ -157,7 +153,6 @@ impl JjBackend {
         &self,
         diff_args: &[&str],
         comparison: WhitespaceComparison,
-        highlighter: &SyntaxHighlighter,
         ignore_working_copy: bool,
     ) -> Result<Vec<DiffFile>> {
         let args = Self::diff_args(comparison, diff_args);
@@ -179,7 +174,7 @@ impl JjBackend {
         patch_args.extend(["--git", "--ignore-working-copy"]);
         let patch = run_jj_command(&self.info.root_path, patch_args)?;
         let patches = pair_metadata_with_patch(metadata, patch.as_bytes())?;
-        diff_parser::parse_file_patches(patches, highlighter)
+        diff_parser::parse_file_patches(patches)
     }
 }
 
@@ -230,7 +225,7 @@ impl VcsBackend for JjBackend {
     }
 
     fn get_working_tree_diff(&self, highlighter: &SyntaxHighlighter) -> Result<Vec<DiffFile>> {
-        let mut files = self.load_diff(&["diff"], highlighter)?;
+        let mut files = self.load_diff(&["diff"])?;
         apply_container_full_file_highlight(
             &self.info.root_path,
             "@-",
@@ -400,7 +395,7 @@ impl VcsBackend for JjBackend {
         // In jj, we use {commit}- to get the parent(s)
         let from_rev = format!("{}-", oldest);
         let diff_args = ["diff", "--from", &from_rev, "--to", newest];
-        let mut files = self.load_diff(&diff_args, highlighter)?;
+        let mut files = self.load_diff(&diff_args)?;
         apply_container_full_file_highlight(
             &self.info.root_path,
             &from_rev,
@@ -478,7 +473,7 @@ impl VcsBackend for JjBackend {
         // Diff from the parent of the oldest commit to the working copy (@)
         let from_rev = format!("{}-", oldest);
         let diff_args = ["diff", "--from", &from_rev, "--to", "@"];
-        let mut files = self.load_diff(&diff_args, highlighter)?;
+        let mut files = self.load_diff(&diff_args)?;
         apply_container_full_file_highlight(
             &self.info.root_path,
             &from_rev,
@@ -1335,8 +1330,8 @@ mod tests {
 
         for line in changed_lines {
             let spans = line
-                .highlighted_spans
-                .as_ref()
+                .coloring
+                .spans()
                 .unwrap_or_else(|| panic!("vue line should be highlighted: {line:?}"));
             let unique_fgs: std::collections::HashSet<_> =
                 spans.iter().filter_map(|(s, _)| s.fg).collect();
