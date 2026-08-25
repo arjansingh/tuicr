@@ -1021,6 +1021,10 @@ impl App {
         {
             self.reload_inline_selection()?;
         } else {
+            // One commit is its own whole range, so it takes this branch rather than the
+            // narrowing one above, and the insert has to happen here for a single-commit
+            // review to carry its message.
+            self.insert_commit_message_if_single();
             self.sort_files_by_directory(true);
             self.expand_all_dirs();
             self.rebuild_annotations();
