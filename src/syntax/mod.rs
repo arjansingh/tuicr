@@ -120,12 +120,13 @@ impl SyntaxHighlighter {
     /// A highlighter that resolves no syntax at all, so `highlight_file_lines`
     /// returns `None` for every path without doing any syntect work.
     ///
-    /// The diff watcher uses this to parse a diff when it needs the content but not
-    /// the colours. `DiffFile::compute_content_hash` runs during parsing over line
-    /// text alone, and highlighting only ever assigns spans, so a diff parsed this
-    /// way fingerprints identically to a highlighted one. Per-hunk coloring runs at
-    /// render time, so what this saves is grammar work for container files
-    /// (`needs_full_file_highlight`, e.g. Vue, MDX).
+    /// Test-only: production code gets this behavior for free by passing
+    /// `highlight: None` to the `VcsBackend` fetch methods, which skips
+    /// building a highlighter at all rather than building an empty one. Tests
+    /// use `plain()` where they need an actual `&SyntaxHighlighter` value —
+    /// for example to prove a highlighted and an unhighlighted fetch parse to
+    /// the same `DiffFile`s.
+    #[cfg(test)]
     pub(crate) fn plain() -> Self {
         let theme = syntect::highlighting::Theme::default();
         let markdown_palette = cmark::MarkdownPalette::resolve(&theme);

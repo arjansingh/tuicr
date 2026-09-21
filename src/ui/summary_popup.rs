@@ -339,7 +339,7 @@ mod tests {
     use ratatui::{Terminal, backend::TestBackend, buffer::Buffer};
 
     use crate::app::{AnnotatedLine, DiffSource, DiffViewMode, FocusedPanel, InputMode};
-    use crate::error::{Result as TuicrResult, TuicrError};
+    use crate::error::Result as TuicrResult;
     use crate::handler::{handle_mouse_event, handle_summary_action};
     use crate::input::Action;
     use crate::model::comment::CommentLifecycleState;
@@ -348,7 +348,6 @@ mod tests {
         CommentType, DiffFile, DiffHunk, DiffLine, FileStatus, LineColoring, LineOrigin, LineRange,
         ReviewSession, SessionDiffSource,
     };
-    use crate::syntax::SyntaxHighlighter;
     use crate::theme::Theme;
     use crate::vcs::traits::{CommitInfo, VcsBackend, VcsChangeStatus, VcsInfo, VcsType};
 
@@ -359,10 +358,6 @@ mod tests {
     impl VcsBackend for SnapshotVcs {
         fn info(&self) -> &VcsInfo {
             &self.info
-        }
-
-        fn get_working_tree_diff(&self, _h: &SyntaxHighlighter) -> TuicrResult<Vec<DiffFile>> {
-            Err(TuicrError::NoChanges)
         }
 
         fn fetch_context_lines(

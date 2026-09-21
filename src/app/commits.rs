@@ -174,7 +174,7 @@ impl App {
         let change_status = Self::get_change_status_with_ignore(
             self.vcs.as_ref(),
             &self.vcs_info.root_path,
-            highlighter,
+            Some(highlighter),
             self.path_filter.as_deref(),
         )?;
         let has_staged_changes = change_status.staged;
@@ -253,7 +253,7 @@ impl App {
             match Self::get_working_tree_diff_with_ignore(
                 self.vcs.as_ref(),
                 &self.vcs_info.root_path,
-                highlighter,
+                Some(highlighter),
                 self.path_filter.as_deref(),
             ) {
                 Ok(diff_files) => {
@@ -952,7 +952,7 @@ impl App {
             self.vcs.as_ref(),
             &self.vcs_info.root_path,
             &ResolvedRevisionRange::from_commit_ids(&selected_ids, RevisionDiffTarget::CommitList),
-            highlighter,
+            Some(highlighter),
             self.path_filter.as_deref(),
         )?;
 
@@ -1079,7 +1079,7 @@ impl App {
                     self.vcs.as_ref(),
                     &self.vcs_info.root_path,
                     &fetch_source,
-                    highlighter,
+                    Some(highlighter),
                     self.path_filter.as_deref(),
                 ) {
                     Ok(files) => files,

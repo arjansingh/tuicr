@@ -13,10 +13,6 @@ impl VcsBackend for MockVcs {
         &self.info
     }
 
-    fn get_working_tree_diff(&self, _highlighter: &SyntaxHighlighter) -> Result<Vec<DiffFile>> {
-        Err(TuicrError::NoChanges)
-    }
-
     fn fetch_context_lines(
         &self,
         _file_path: &Path,

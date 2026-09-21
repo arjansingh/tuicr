@@ -406,7 +406,6 @@ pub(crate) mod tests {
         SummaryCommentTarget,
     };
     use crate::error::Result as TuicrResult;
-    use crate::error::TuicrError;
     use crate::forge::remote_comments::{
         RemoteCommentSide, RemoteReviewComment, RemoteReviewState, RemoteReviewSummary,
         RemoteReviewThread,
@@ -416,7 +415,6 @@ pub(crate) mod tests {
         Comment, CommentType, DiffFile, DiffHunk, DiffLine, FileStatus, LineColoring, LineOrigin,
         LineSide, ReviewSession, SessionDiffSource,
     };
-    use crate::syntax::SyntaxHighlighter;
     use crate::theme::Theme;
     use crate::vcs::traits::{VcsBackend, VcsChangeStatus, VcsInfo, VcsType};
     use ratatui::Terminal;
@@ -430,12 +428,6 @@ pub(crate) mod tests {
     impl VcsBackend for StubVcs {
         fn info(&self) -> &VcsInfo {
             &self.info
-        }
-        fn get_working_tree_diff(
-            &self,
-            _highlighter: &SyntaxHighlighter,
-        ) -> TuicrResult<Vec<DiffFile>> {
-            Err(TuicrError::NoChanges)
         }
         fn fetch_context_lines(
             &self,

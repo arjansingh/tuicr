@@ -38,7 +38,7 @@ impl App {
             let vcs = Box::new(FileBackend::new(file_path)?);
             let vcs_info = vcs.info().clone();
             let highlighter = theme.syntax_highlighter();
-            let diff_files = vcs.get_working_tree_diff(highlighter)?;
+            let diff_files = vcs.get_working_tree_diff(Some(highlighter))?;
             let session = Self::load_or_create_session(&vcs_info, SessionDiffSource::WorkingTree);
 
             let mut app = Self::build(
@@ -89,7 +89,7 @@ impl App {
             let mut vcs_info = vcs.info().clone();
             vcs_info.head_commit = base_commit;
             let highlighter = theme.syntax_highlighter();
-            let diff_files = vcs.get_working_tree_diff(highlighter)?;
+            let diff_files = vcs.get_working_tree_diff(Some(highlighter))?;
             // `git ls-files` already honors `.gitignore`, but `.tuicrignore`
             // is tuicr-specific and not known to git. Run the same post-VCS
             // filter every other mode uses so users can elide tracked-but-
@@ -166,7 +166,7 @@ impl App {
                     vcs.as_ref(),
                     &vcs_info.root_path,
                     &commit_ids,
-                    highlighter,
+                    Some(highlighter),
                     options.path_filter,
                 )?;
                 let session = Self::load_or_create_staged_unstaged_and_commits_session(
@@ -185,7 +185,7 @@ impl App {
                 let change_status = Self::get_change_status_with_ignore(
                     vcs.as_ref(),
                     &vcs_info.root_path,
-                    highlighter,
+                    Some(highlighter),
                     options.path_filter,
                 )?;
                 let mut all_commits = Vec::new();
@@ -246,7 +246,7 @@ impl App {
                 vcs.as_ref(),
                 &vcs_info.root_path,
                 &revision_range,
-                highlighter,
+                Some(highlighter),
                 options.path_filter,
             )?;
             let session = Self::load_or_create_commit_range_session(&vcs_info, &commit_ids);
@@ -311,7 +311,7 @@ impl App {
             let diff_files = Self::get_working_tree_diff_with_ignore(
                 vcs.as_ref(),
                 &vcs_info.root_path,
-                highlighter,
+                Some(highlighter),
                 options.path_filter,
             )?;
             let session =
@@ -338,7 +338,7 @@ impl App {
             let change_status = Self::get_change_status_with_ignore(
                 vcs.as_ref(),
                 &vcs_info.root_path,
-                highlighter,
+                Some(highlighter),
                 options.path_filter,
             )?;
             let has_staged_changes = change_status.staged;

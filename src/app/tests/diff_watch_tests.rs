@@ -22,7 +22,10 @@ impl VcsBackend for StubVcs {
         &self.info
     }
 
-    fn get_working_tree_diff(&self, _highlighter: &SyntaxHighlighter) -> Result<Vec<DiffFile>> {
+    fn get_working_tree_diff(
+        &self,
+        _highlight: Option<&SyntaxHighlighter>,
+    ) -> Result<Vec<DiffFile>> {
         panic!("diff watch must not fetch through self.vcs; it opens its own backend")
     }
 

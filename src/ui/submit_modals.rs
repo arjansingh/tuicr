@@ -297,14 +297,12 @@ mod tests {
     use super::*;
     use crate::app::{App, DiffSource, InputMode, PullRequestDiffSource, SubmitState};
     use crate::error::Result as TuicrResult;
-    use crate::error::TuicrError;
     use crate::forge::submit::{GhSide, InlineComment};
     use crate::forge::traits::{ForgeRepository, PrSessionKey};
     use crate::model::ReviewSession;
     use crate::model::comment::{Comment, CommentType};
     use crate::model::diff_types::FileStatus;
-    use crate::model::{DiffFile, DiffLine, SessionDiffSource};
-    use crate::syntax::SyntaxHighlighter;
+    use crate::model::{DiffLine, SessionDiffSource};
     use crate::theme::Theme;
     use crate::vcs::traits::{VcsBackend, VcsChangeStatus, VcsInfo, VcsType};
     use ratatui::Terminal;
@@ -319,9 +317,6 @@ mod tests {
     impl VcsBackend for SnapshotVcs {
         fn info(&self) -> &VcsInfo {
             &self.info
-        }
-        fn get_working_tree_diff(&self, _h: &SyntaxHighlighter) -> TuicrResult<Vec<DiffFile>> {
-            Err(TuicrError::NoChanges)
         }
         fn fetch_context_lines(
             &self,

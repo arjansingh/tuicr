@@ -892,11 +892,11 @@ mod tests {
         // overstates what they gain.
         let fetch_time = fastest_of(REPS, || {
             backend
-                .get_commit_range_diff(&range, &plain)
+                .get_commit_range_diff(&range, Some(&plain))
                 .expect("failed to fetch the diff for TUICR_BENCH_RANGE");
         });
         let files = backend
-            .get_commit_range_diff(&range, &plain)
+            .get_commit_range_diff(&range, Some(&plain))
             .expect("failed to fetch the diff for TUICR_BENCH_RANGE");
 
         let total_files = files.len();

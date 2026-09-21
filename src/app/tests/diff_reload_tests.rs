@@ -81,12 +81,19 @@ impl VcsBackend for ScriptedVcs {
         &self.info
     }
 
-    fn get_working_tree_diff(&self, highlighter: &SyntaxHighlighter) -> Result<Vec<DiffFile>> {
+    fn get_working_tree_diff(
+        &self,
+        highlight: Option<&SyntaxHighlighter>,
+    ) -> Result<Vec<DiffFile>> {
         self.working_tree_diff_calls.fetch_add(1, Ordering::SeqCst);
         self.grammar_counts
             .lock()
             .expect("grammar counts poisoned")
-            .push(highlighter.syntax_set.syntaxes().len());
+            .push(
+                highlight
+                    .map(|h| h.syntax_set.syntaxes().len())
+                    .unwrap_or(0),
+            );
         self.working_tree_diff_results
             .borrow_mut()
             .pop_front()
@@ -96,7 +103,7 @@ impl VcsBackend for ScriptedVcs {
     fn get_commit_range_diff(
         &self,
         revision_range: &ResolvedRevisionRange<'_>,
-        _highlighter: &SyntaxHighlighter,
+        _highlight: Option<&SyntaxHighlighter>,
     ) -> Result<Vec<DiffFile>> {
         self.commit_range_diff_ids
             .lock()

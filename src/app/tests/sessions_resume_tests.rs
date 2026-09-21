@@ -52,19 +52,22 @@ impl VcsBackend for RecordingVcs {
     }
 
     /// Non-empty: a `-w` review of a fully staged tree still has a diff.
-    fn get_working_tree_diff(&self, _highlighter: &SyntaxHighlighter) -> Result<Vec<DiffFile>> {
+    fn get_working_tree_diff(
+        &self,
+        _highlight: Option<&SyntaxHighlighter>,
+    ) -> Result<Vec<DiffFile>> {
         self.calls.lock().unwrap().working_tree += 1;
         Ok(vec![diff_file("worktree.py")])
     }
 
     /// Empty: the unstaged diff and the whole-working-tree diff differ, so
     /// routing to the wrong one is visible.
-    fn get_unstaged_diff(&self, _highlighter: &SyntaxHighlighter) -> Result<Vec<DiffFile>> {
+    fn get_unstaged_diff(&self, _highlight: Option<&SyntaxHighlighter>) -> Result<Vec<DiffFile>> {
         self.calls.lock().unwrap().unstaged += 1;
         Err(TuicrError::NoChanges)
     }
 
-    fn get_staged_diff(&self, _highlighter: &SyntaxHighlighter) -> Result<Vec<DiffFile>> {
+    fn get_staged_diff(&self, _highlight: Option<&SyntaxHighlighter>) -> Result<Vec<DiffFile>> {
         self.calls.lock().unwrap().staged += 1;
         Ok(vec![diff_file("staged.py")])
     }
@@ -95,7 +98,7 @@ impl VcsBackend for RecordingVcs {
     fn get_commit_range_diff(
         &self,
         revision_range: &ResolvedRevisionRange<'_>,
-        _highlighter: &SyntaxHighlighter,
+        _highlight: Option<&SyntaxHighlighter>,
     ) -> Result<Vec<DiffFile>> {
         self.calls.lock().unwrap().range_ids = Some(revision_range.commit_ids.to_vec());
         Ok(vec![diff_file("ranged.py")])

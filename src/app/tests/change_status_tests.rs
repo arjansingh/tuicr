@@ -17,11 +17,7 @@ impl VcsBackend for StatusProbeMock {
         &self.info
     }
 
-    fn get_working_tree_diff(&self, _highlighter: &SyntaxHighlighter) -> Result<Vec<DiffFile>> {
-        Err(TuicrError::NoChanges)
-    }
-
-    fn get_staged_diff(&self, _highlighter: &SyntaxHighlighter) -> Result<Vec<DiffFile>> {
+    fn get_staged_diff(&self, _highlight: Option<&SyntaxHighlighter>) -> Result<Vec<DiffFile>> {
         if self.staged_files.is_empty() {
             Err(TuicrError::NoChanges)
         } else {
@@ -29,7 +25,7 @@ impl VcsBackend for StatusProbeMock {
         }
     }
 
-    fn get_unstaged_diff(&self, _highlighter: &SyntaxHighlighter) -> Result<Vec<DiffFile>> {
+    fn get_unstaged_diff(&self, _highlight: Option<&SyntaxHighlighter>) -> Result<Vec<DiffFile>> {
         if self.unstaged_files.is_empty() {
             Err(TuicrError::NoChanges)
         } else {
@@ -98,9 +94,13 @@ fn jj_status_never_creates_git_staging_rows() {
     let mut vcs = mock_vcs(dir.path().to_path_buf());
     vcs.info.vcs_type = VcsType::Jujutsu;
 
-    let status =
-        App::get_change_status_with_ignore(&vcs, dir.path(), &SyntaxHighlighter::default(), None)
-            .expect("failed to get change status");
+    let status = App::get_change_status_with_ignore(
+        &vcs,
+        dir.path(),
+        Some(&SyntaxHighlighter::default()),
+        None,
+    )
+    .expect("failed to get change status");
 
     assert_eq!(
         status,
@@ -120,9 +120,13 @@ fn status_probe_rechecks_positive_rows_when_ignore_rules_exist() {
     vcs.staged_files = vec![diff_file("ignored/generated.rs")];
     vcs.unstaged_files = vec![diff_file("src/lib.rs")];
 
-    let status =
-        App::get_change_status_with_ignore(&vcs, dir.path(), &SyntaxHighlighter::default(), None)
-            .expect("failed to get change status");
+    let status = App::get_change_status_with_ignore(
+        &vcs,
+        dir.path(),
+        Some(&SyntaxHighlighter::default()),
+        None,
+    )
+    .expect("failed to get change status");
 
     assert_eq!(
         status,
@@ -142,9 +146,13 @@ fn status_probe_does_not_load_diffs_without_ignore_rules() {
     let dir = tempdir().expect("failed to create temp dir");
     let vcs = mock_vcs(dir.path().to_path_buf());
 
-    let status =
-        App::get_change_status_with_ignore(&vcs, dir.path(), &SyntaxHighlighter::default(), None)
-            .expect("failed to get change status");
+    let status = App::get_change_status_with_ignore(
+        &vcs,
+        dir.path(),
+        Some(&SyntaxHighlighter::default()),
+        None,
+    )
+    .expect("failed to get change status");
 
     assert_eq!(
         status,
@@ -173,17 +181,15 @@ fn list_changed_paths_used_to_verify_ignore_rules() {
         fn info(&self) -> &VcsInfo {
             self.inner.info()
         }
-        fn get_working_tree_diff(&self, _highlighter: &SyntaxHighlighter) -> Result<Vec<DiffFile>> {
+        fn get_staged_diff(&self, _highlight: Option<&SyntaxHighlighter>) -> Result<Vec<DiffFile>> {
             Err(TuicrError::UnsupportedOperation(
                 "should not be called".into(),
             ))
         }
-        fn get_staged_diff(&self, _highlighter: &SyntaxHighlighter) -> Result<Vec<DiffFile>> {
-            Err(TuicrError::UnsupportedOperation(
-                "should not be called".into(),
-            ))
-        }
-        fn get_unstaged_diff(&self, _highlighter: &SyntaxHighlighter) -> Result<Vec<DiffFile>> {
+        fn get_unstaged_diff(
+            &self,
+            _highlight: Option<&SyntaxHighlighter>,
+        ) -> Result<Vec<DiffFile>> {
             Err(TuicrError::UnsupportedOperation(
                 "should not be called".into(),
             ))
@@ -228,9 +234,13 @@ fn list_changed_paths_used_to_verify_ignore_rules() {
         unstaged_paths: vec![PathBuf::from("src/lib.rs")],
     };
 
-    let status =
-        App::get_change_status_with_ignore(&vcs, dir.path(), &SyntaxHighlighter::default(), None)
-            .expect("failed to get change status");
+    let status = App::get_change_status_with_ignore(
+        &vcs,
+        dir.path(),
+        Some(&SyntaxHighlighter::default()),
+        None,
+    )
+    .expect("failed to get change status");
 
     assert_eq!(
         status,

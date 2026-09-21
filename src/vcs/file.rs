@@ -267,7 +267,10 @@ impl VcsBackend for FileBackend {
         &self.info
     }
 
-    fn get_working_tree_diff(&self, _highlighter: &SyntaxHighlighter) -> Result<Vec<DiffFile>> {
+    fn get_working_tree_diff(
+        &self,
+        _highlight: Option<&SyntaxHighlighter>,
+    ) -> Result<Vec<DiffFile>> {
         let diff_files: Vec<DiffFile> = self
             .files
             .iter()
@@ -380,7 +383,7 @@ mod tests {
         fs::write(&path, "alpha\nbeta\n").unwrap();
 
         let backend = FileBackend::new(path.to_str().unwrap()).unwrap();
-        let diffs = backend.get_working_tree_diff(&highlighter()).unwrap();
+        let diffs = backend.get_working_tree_diff(Some(&highlighter())).unwrap();
 
         assert_eq!(diffs.len(), 1);
         assert_eq!(
@@ -398,7 +401,7 @@ mod tests {
         fs::write(dir.path().join("ignored.txt"), "skip me\n").unwrap();
 
         let backend = FileBackend::new(dir.path().to_str().unwrap()).unwrap();
-        let diffs = backend.get_working_tree_diff(&highlighter()).unwrap();
+        let diffs = backend.get_working_tree_diff(Some(&highlighter())).unwrap();
 
         let names: Vec<_> = diffs
             .iter()
@@ -425,7 +428,7 @@ mod tests {
         fs::write(sub.join("inner.txt"), "x\n").unwrap();
 
         let backend = FileBackend::new(dir.path().to_str().unwrap()).unwrap();
-        let diffs = backend.get_working_tree_diff(&highlighter()).unwrap();
+        let diffs = backend.get_working_tree_diff(Some(&highlighter())).unwrap();
 
         assert_eq!(diffs.len(), 1);
         assert_eq!(
@@ -447,7 +450,7 @@ mod tests {
         .unwrap();
         let root = dir.path().canonicalize().unwrap();
         let backend = FileBackend::new_pristine(vec![path.clone()], root).unwrap();
-        let diffs = backend.get_working_tree_diff(&highlighter()).unwrap();
+        let diffs = backend.get_working_tree_diff(Some(&highlighter())).unwrap();
 
         assert_eq!(diffs.len(), 1);
         let hunk = &diffs[0].hunks[0];
@@ -470,7 +473,7 @@ mod tests {
         fs::write(dir.path().join("a.txt"), "alpha\nbeta\n").unwrap();
 
         let backend = FileBackend::new(dir.path().to_str().unwrap()).unwrap();
-        let diffs = backend.get_working_tree_diff(&highlighter()).unwrap();
+        let diffs = backend.get_working_tree_diff(Some(&highlighter())).unwrap();
 
         assert_eq!(diffs.len(), 1);
         let hunk = &diffs[0].hunks[0];
@@ -490,7 +493,7 @@ mod tests {
 
         let root = dir.path().canonicalize().unwrap();
         let backend = FileBackend::new_pristine(vec![text_path.clone(), bin_path], root).unwrap();
-        let diffs = backend.get_working_tree_diff(&highlighter()).unwrap();
+        let diffs = backend.get_working_tree_diff(Some(&highlighter())).unwrap();
 
         assert_eq!(diffs.len(), 1);
         assert_eq!(diffs[0].new_path.as_deref().unwrap(), Path::new("text.txt"));
@@ -618,7 +621,7 @@ mod tests {
         let root = dir.path().canonicalize().unwrap();
         let mut pristine = FileBackend::new_pristine(vec![path.clone()], root)
             .unwrap()
-            .get_working_tree_diff(&highlighter())
+            .get_working_tree_diff(Some(&highlighter()))
             .unwrap();
         crate::vcs::color_all_hunks(&mut pristine, &highlighter());
 
@@ -650,7 +653,7 @@ mod tests {
         fs::write(&single_path, source).unwrap();
         let mut single = FileBackend::new(single_path.to_str().unwrap())
             .unwrap()
-            .get_working_tree_diff(&highlighter())
+            .get_working_tree_diff(Some(&highlighter()))
             .unwrap();
         crate::vcs::color_all_hunks(&mut single, &highlighter());
 

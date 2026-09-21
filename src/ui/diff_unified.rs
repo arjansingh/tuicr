@@ -1479,7 +1479,6 @@ mod remote_comments_snapshot_tests {
     //! for the provider badge text on the expected row.
     use crate::app::{App, DiffSource, InputMode, PullRequestDiffSource};
     use crate::error::Result as TuicrResult;
-    use crate::error::TuicrError;
     use crate::forge::remote_comments::{
         PrCommentsVisibility, RemoteCommentSide, RemoteReviewComment, RemoteReviewThread,
     };
@@ -1488,7 +1487,6 @@ mod remote_comments_snapshot_tests {
         DiffFile, DiffHunk, DiffLine, FileStatus, LineColoring, LineOrigin, ReviewSession,
         SessionDiffSource,
     };
-    use crate::syntax::SyntaxHighlighter;
     use crate::theme::Theme;
     use crate::ui::render;
     use crate::vcs::traits::{VcsBackend, VcsChangeStatus, VcsInfo, VcsType};
@@ -1505,12 +1503,6 @@ mod remote_comments_snapshot_tests {
     impl VcsBackend for SnapshotVcs {
         fn info(&self) -> &VcsInfo {
             &self.info
-        }
-        fn get_working_tree_diff(
-            &self,
-            _highlighter: &SyntaxHighlighter,
-        ) -> TuicrResult<Vec<DiffFile>> {
-            Err(TuicrError::NoChanges)
         }
         fn fetch_context_lines(
             &self,

@@ -12,14 +12,10 @@ impl VcsBackend for DummyVcs {
         &self.info
     }
 
-    fn get_working_tree_diff(&self, _highlighter: &SyntaxHighlighter) -> Result<Vec<DiffFile>> {
-        Err(TuicrError::NoChanges)
-    }
-
     fn get_commit_range_diff(
         &self,
         _revision_range: &crate::vcs::traits::ResolvedRevisionRange<'_>,
-        _highlighter: &SyntaxHighlighter,
+        _highlight: Option<&SyntaxHighlighter>,
     ) -> Result<Vec<DiffFile>> {
         Ok(self.range_diff.clone())
     }

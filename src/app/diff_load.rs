@@ -149,12 +149,12 @@ impl App {
     pub(in crate::app) fn get_working_tree_diff_with_ignore(
         vcs: &dyn VcsBackend,
         repo_root: &Path,
-        highlighter: &SyntaxHighlighter,
+        highlight: Option<&SyntaxHighlighter>,
         path_filter: Option<&str>,
     ) -> Result<Vec<DiffFile>> {
         let diff_files = crate::profile::time_with(
             "diff.load_working_tree",
-            || vcs.get_working_tree_diff(highlighter),
+            || vcs.get_working_tree_diff(highlight),
             profile_diff_result,
         )?;
         let diff_files = Self::filter_ignored_diff_files(repo_root, diff_files);
@@ -169,12 +169,12 @@ impl App {
     pub(in crate::app) fn get_staged_diff_with_ignore(
         vcs: &dyn VcsBackend,
         repo_root: &Path,
-        highlighter: &SyntaxHighlighter,
+        highlight: Option<&SyntaxHighlighter>,
         path_filter: Option<&str>,
     ) -> Result<Vec<DiffFile>> {
         let diff_files = crate::profile::time_with(
             "diff.load_staged",
-            || vcs.get_staged_diff(highlighter),
+            || vcs.get_staged_diff(highlight),
             profile_diff_result,
         )?;
         let diff_files = Self::filter_ignored_diff_files(repo_root, diff_files);
@@ -189,18 +189,18 @@ impl App {
     pub(in crate::app) fn get_unstaged_diff_with_ignore(
         vcs: &dyn VcsBackend,
         repo_root: &Path,
-        highlighter: &SyntaxHighlighter,
+        highlight: Option<&SyntaxHighlighter>,
         path_filter: Option<&str>,
     ) -> Result<Vec<DiffFile>> {
         let diff_files = match crate::profile::time_with(
             "diff.load_unstaged",
-            || vcs.get_unstaged_diff(highlighter),
+            || vcs.get_unstaged_diff(highlight),
             profile_diff_result,
         ) {
             Ok(diff_files) => diff_files,
             Err(TuicrError::UnsupportedOperation(_)) => crate::profile::time_with(
                 "diff.load_unstaged_fallback_working_tree",
-                || vcs.get_working_tree_diff(highlighter),
+                || vcs.get_working_tree_diff(highlight),
                 profile_diff_result,
             )?,
             Err(e) => return Err(e),
@@ -218,12 +218,12 @@ impl App {
         vcs: &dyn VcsBackend,
         repo_root: &Path,
         revision_range: &ResolvedRevisionRange<'_>,
-        highlighter: &SyntaxHighlighter,
+        highlight: Option<&SyntaxHighlighter>,
         path_filter: Option<&str>,
     ) -> Result<Vec<DiffFile>> {
         let diff_files = crate::profile::time_with(
             "diff.load_commit_range",
-            || vcs.get_commit_range_diff(revision_range, highlighter),
+            || vcs.get_commit_range_diff(revision_range, highlight),
             profile_diff_result,
         )?;
         let diff_files = Self::filter_ignored_diff_files(repo_root, diff_files);
@@ -239,12 +239,12 @@ impl App {
         vcs: &dyn VcsBackend,
         repo_root: &Path,
         commit_ids: &[String],
-        highlighter: &SyntaxHighlighter,
+        highlight: Option<&SyntaxHighlighter>,
         path_filter: Option<&str>,
     ) -> Result<Vec<DiffFile>> {
         let diff_files = crate::profile::time_with(
             "diff.load_working_tree_with_commits",
-            || vcs.get_working_tree_with_commits_diff(commit_ids, highlighter),
+            || vcs.get_working_tree_with_commits_diff(commit_ids, highlight),
             profile_diff_result,
         )?;
         let diff_files = Self::filter_ignored_diff_files(repo_root, diff_files);
@@ -266,7 +266,7 @@ impl App {
     pub(in crate::app) fn get_change_status_with_ignore(
         vcs: &dyn VcsBackend,
         repo_root: &Path,
-        highlighter: &SyntaxHighlighter,
+        highlight: Option<&SyntaxHighlighter>,
         path_filter: Option<&str>,
     ) -> Result<VcsChangeStatus> {
         // Jujutsu has no staging index: its working copy is represented by `@`.
@@ -288,7 +288,7 @@ impl App {
                     return Self::verify_status_against_ignore(
                         vcs,
                         repo_root,
-                        highlighter,
+                        highlight,
                         path_filter,
                         status,
                     );
@@ -301,7 +301,7 @@ impl App {
         Self::verify_status_against_ignore(
             vcs,
             repo_root,
-            highlighter,
+            highlight,
             path_filter,
             VcsChangeStatus {
                 staged: true,
@@ -316,7 +316,7 @@ impl App {
     fn verify_status_against_ignore(
         vcs: &dyn VcsBackend,
         repo_root: &Path,
-        highlighter: &SyntaxHighlighter,
+        highlight: Option<&SyntaxHighlighter>,
         path_filter: Option<&str>,
         assumed_status: VcsChangeStatus,
     ) -> Result<VcsChangeStatus> {
@@ -324,7 +324,7 @@ impl App {
             Self::side_has_visible_changes(
                 vcs,
                 repo_root,
-                highlighter,
+                highlight,
                 path_filter,
                 ChangeKind::Staged,
             )?
@@ -335,7 +335,7 @@ impl App {
             Self::side_has_visible_changes(
                 vcs,
                 repo_root,
-                highlighter,
+                highlight,
                 path_filter,
                 ChangeKind::Unstaged,
             )?
@@ -348,7 +348,7 @@ impl App {
     fn side_has_visible_changes(
         vcs: &dyn VcsBackend,
         repo_root: &Path,
-        highlighter: &SyntaxHighlighter,
+        highlight: Option<&SyntaxHighlighter>,
         path_filter: Option<&str>,
         kind: ChangeKind,
     ) -> Result<bool> {
@@ -363,14 +363,11 @@ impl App {
                 // anything survives. This still happens for jj/hg today.
                 let diff_result = match kind {
                     ChangeKind::Staged => {
-                        Self::get_staged_diff_with_ignore(vcs, repo_root, highlighter, path_filter)
+                        Self::get_staged_diff_with_ignore(vcs, repo_root, highlight, path_filter)
                     }
-                    ChangeKind::Unstaged => Self::get_unstaged_diff_with_ignore(
-                        vcs,
-                        repo_root,
-                        highlighter,
-                        path_filter,
-                    ),
+                    ChangeKind::Unstaged => {
+                        Self::get_unstaged_diff_with_ignore(vcs, repo_root, highlight, path_filter)
+                    }
                 };
                 match diff_result {
                     Ok(_) => Ok(true),
@@ -413,7 +410,7 @@ impl App {
         let diff_files = match Self::get_working_tree_diff_with_ignore(
             self.vcs.as_ref(),
             &self.vcs_info.root_path,
-            highlighter,
+            Some(highlighter),
             self.path_filter.as_deref(),
         ) {
             Ok(diff_files) => diff_files,
@@ -454,7 +451,7 @@ impl App {
         let diff_files = match Self::get_working_tree_diff_with_ignore(
             self.vcs.as_ref(),
             &self.vcs_info.root_path,
-            highlighter,
+            Some(highlighter),
             self.path_filter.as_deref(),
         ) {
             Ok(diff_files) => diff_files,
@@ -489,7 +486,7 @@ impl App {
         let diff_files = match Self::get_staged_diff_with_ignore(
             self.vcs.as_ref(),
             &self.vcs_info.root_path,
-            highlighter,
+            Some(highlighter),
             self.path_filter.as_deref(),
         ) {
             Ok(diff_files) => diff_files,
@@ -524,7 +521,7 @@ impl App {
         let diff_files = match Self::get_unstaged_diff_with_ignore(
             self.vcs.as_ref(),
             &self.vcs_info.root_path,
-            highlighter,
+            Some(highlighter),
             self.path_filter.as_deref(),
         ) {
             Ok(diff_files) => diff_files,
@@ -561,13 +558,6 @@ impl App {
     /// SHA advances, so callers dispatch via `reload_pull_request` instead of
     /// going through this local-reload helper.
     fn fetch_diff_files(&self) -> Result<Vec<DiffFile>> {
-        self.fetch_diff_files_with(self.theme.syntax_highlighter())
-    }
-
-    /// Same as `fetch_diff_files`, with the highlighter as a parameter so the
-    /// diff-watch gate can run a cheap parse against `probe_highlighter()` before
-    /// deciding to pay for a highlighted one.
-    fn fetch_diff_files_with(&self, highlighter: &SyntaxHighlighter) -> Result<Vec<DiffFile>> {
         let fetch_source = Self::narrowed_fetch_source(
             &self.diff_source,
             &self.review_commits,
@@ -577,7 +567,7 @@ impl App {
             self.vcs.as_ref(),
             &self.vcs_info.root_path,
             &fetch_source,
-            highlighter,
+            Some(self.theme.syntax_highlighter()),
             self.path_filter.as_deref(),
         )
     }
@@ -706,7 +696,7 @@ impl App {
         vcs: &dyn VcsBackend,
         root_path: &Path,
         diff_source: &DiffSource,
-        highlighter: &SyntaxHighlighter,
+        highlight: Option<&SyntaxHighlighter>,
         path_filter: Option<&str>,
     ) -> Result<Vec<DiffFile>> {
         match diff_source {
@@ -714,7 +704,7 @@ impl App {
                 vcs,
                 root_path,
                 &ResolvedRevisionRange::from_commit_ids(commit_ids, RevisionDiffTarget::CommitList),
-                highlighter,
+                highlight,
                 path_filter,
             ),
             DiffSource::StagedUnstagedAndCommits(commit_ids) => {
@@ -722,18 +712,18 @@ impl App {
                     vcs,
                     root_path,
                     commit_ids,
-                    highlighter,
+                    highlight,
                     path_filter,
                 )
             }
             DiffSource::Staged => {
-                Self::get_staged_diff_with_ignore(vcs, root_path, highlighter, path_filter)
+                Self::get_staged_diff_with_ignore(vcs, root_path, highlight, path_filter)
             }
             DiffSource::Unstaged => {
-                Self::get_unstaged_diff_with_ignore(vcs, root_path, highlighter, path_filter)
+                Self::get_unstaged_diff_with_ignore(vcs, root_path, highlight, path_filter)
             }
             DiffSource::StagedAndUnstaged | DiffSource::WorkingTree => {
-                Self::get_working_tree_diff_with_ignore(vcs, root_path, highlighter, path_filter)
+                Self::get_working_tree_diff_with_ignore(vcs, root_path, highlight, path_filter)
             }
             DiffSource::PullRequest(_) => Err(TuicrError::UnsupportedOperation(
                 "Use :reload from the command line in PR mode".to_string(),
@@ -888,10 +878,11 @@ impl App {
     /// `narrowed_fetch_source` first, so this function stays about the gate and
     /// knows nothing about commit selection.
     ///
-    /// The probe skips syntax highlighting via `probe_highlighter()`. Per-hunk
-    /// coloring runs at render time, so what this avoids is grammar work for
-    /// container files (Vue, MDX; `enhance_with_full_file_highlight`), whose
-    /// content is read from disk regardless.
+    /// The probe fetches with `highlight: None`, so no highlighter is built at
+    /// all. Per-hunk coloring runs at render time regardless, so what `None`
+    /// avoids is grammar work for container files (Vue, MDX;
+    /// `enhance_with_full_file_highlight`), whose content is read from disk
+    /// either way.
     fn changed_diff_files_for_source(
         vcs: &dyn VcsBackend,
         root_path: &Path,
@@ -900,13 +891,8 @@ impl App {
         path_filter: Option<&str>,
         current: u64,
     ) -> Result<Option<Vec<DiffFile>>> {
-        let probe = Self::fetch_diff_files_for_source(
-            vcs,
-            root_path,
-            fetch_source,
-            probe_highlighter(),
-            path_filter,
-        )?;
+        let probe =
+            Self::fetch_diff_files_for_source(vcs, root_path, fetch_source, None, path_filter)?;
         if diff_files_fingerprint(&probe) == current {
             return Ok(None);
         }
@@ -919,7 +905,7 @@ impl App {
             vcs,
             root_path,
             fetch_source,
-            highlighter,
+            Some(highlighter),
             path_filter,
         )?;
         if diff_files_fingerprint(&fetched) == current {
@@ -938,7 +924,7 @@ impl App {
             self.vcs.as_ref(),
             &self.vcs_info.root_path,
             &selected_ids,
-            highlighter,
+            Some(highlighter),
             self.path_filter.as_deref(),
         ) {
             Ok(diff_files) => diff_files,
@@ -1165,13 +1151,8 @@ impl App {
         // combined working-tree diff byte-identical, so the fingerprint above
         // reports nothing and only this can tell the pane that a side gained
         // or lost its row.
-        let change_status = Self::get_change_status_with_ignore(
-            vcs.as_ref(),
-            root_path,
-            probe_highlighter(),
-            path_filter,
-        )
-        .ok();
+        let change_status =
+            Self::get_change_status_with_ignore(vcs.as_ref(), root_path, None, path_filter).ok();
         Ok(DiffWatchFetched {
             diff_files: files,
             commits,
@@ -1587,13 +1568,6 @@ pub(in crate::app) fn normalize_diff_watch_result(
     }
 }
 
-/// One shared plain highlighter. Building a `SyntaxSet` costs something even when
-/// it is empty, and the watcher asks for this on every tick.
-fn probe_highlighter() -> &'static SyntaxHighlighter {
-    static PROBE: std::sync::OnceLock<SyntaxHighlighter> = std::sync::OnceLock::new();
-    PROBE.get_or_init(SyntaxHighlighter::plain)
-}
-
 /// Fingerprint of one file. `content_hash` alone is insufficient: binary and
 /// too-large files all carry the same empty-hunks hash, so a file flipping to
 /// too-large would otherwise look unchanged.
@@ -1772,11 +1746,14 @@ mod tests {
             &self.info
         }
 
-        fn get_working_tree_diff(&self, highlighter: &SyntaxHighlighter) -> Result<Vec<DiffFile>> {
+        fn get_working_tree_diff(
+            &self,
+            highlight: Option<&SyntaxHighlighter>,
+        ) -> Result<Vec<DiffFile>> {
             crate::vcs::git::diff::get_working_tree_diff(
                 &self.repo,
                 &self.whitespace_mode,
-                highlighter,
+                highlight,
             )
         }
 
@@ -1902,7 +1879,7 @@ mod tests {
             &vcs,
             &vcs.info.root_path,
             &DiffSource::WorkingTree,
-            &highlighter,
+            Some(&highlighter),
             None,
         )
         .expect("initial mixed load");
@@ -1954,7 +1931,7 @@ mod tests {
             &vcs,
             &vcs.info.root_path,
             &DiffSource::WorkingTree,
-            &highlighter,
+            Some(&highlighter),
             None,
         )
         .expect("reload after python edit");

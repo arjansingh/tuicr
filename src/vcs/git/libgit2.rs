@@ -99,16 +99,19 @@ impl VcsBackend for Libgit2Backend {
         false
     }
 
-    fn get_working_tree_diff(&self, highlighter: &SyntaxHighlighter) -> Result<Vec<DiffFile>> {
-        diff::get_working_tree_diff(&self.repo, &self.whitespace_mode, highlighter)
+    fn get_working_tree_diff(
+        &self,
+        highlight: Option<&SyntaxHighlighter>,
+    ) -> Result<Vec<DiffFile>> {
+        diff::get_working_tree_diff(&self.repo, &self.whitespace_mode, highlight)
     }
 
-    fn get_staged_diff(&self, highlighter: &SyntaxHighlighter) -> Result<Vec<DiffFile>> {
-        diff::get_staged_diff(&self.repo, &self.whitespace_mode, highlighter)
+    fn get_staged_diff(&self, highlight: Option<&SyntaxHighlighter>) -> Result<Vec<DiffFile>> {
+        diff::get_staged_diff(&self.repo, &self.whitespace_mode, highlight)
     }
 
-    fn get_unstaged_diff(&self, highlighter: &SyntaxHighlighter) -> Result<Vec<DiffFile>> {
-        diff::get_unstaged_diff(&self.repo, &self.whitespace_mode, highlighter)
+    fn get_unstaged_diff(&self, highlight: Option<&SyntaxHighlighter>) -> Result<Vec<DiffFile>> {
+        diff::get_unstaged_diff(&self.repo, &self.whitespace_mode, highlight)
     }
 
     fn list_changed_paths(&self, kind: ChangeKind) -> Result<Vec<PathBuf>> {
@@ -165,14 +168,9 @@ impl VcsBackend for Libgit2Backend {
     fn get_commit_range_diff(
         &self,
         revision_range: &ResolvedRevisionRange<'_>,
-        highlighter: &SyntaxHighlighter,
+        highlight: Option<&SyntaxHighlighter>,
     ) -> Result<Vec<DiffFile>> {
-        diff::get_commit_range_diff(
-            &self.repo,
-            revision_range,
-            &self.whitespace_mode,
-            highlighter,
-        )
+        diff::get_commit_range_diff(&self.repo, revision_range, &self.whitespace_mode, highlight)
     }
 
     fn get_commits_info(&self, ids: &[String]) -> Result<Vec<CommitInfo>> {
@@ -194,13 +192,13 @@ impl VcsBackend for Libgit2Backend {
     fn get_working_tree_with_commits_diff(
         &self,
         commit_ids: &[String],
-        highlighter: &SyntaxHighlighter,
+        highlight: Option<&SyntaxHighlighter>,
     ) -> Result<Vec<DiffFile>> {
         diff::get_working_tree_with_commits_diff(
             &self.repo,
             commit_ids,
             &self.whitespace_mode,
-            highlighter,
+            highlight,
         )
     }
 

@@ -8,12 +8,6 @@ impl VcsBackend for StubVcs {
     fn info(&self) -> &VcsInfo {
         &self.0
     }
-    fn get_working_tree_diff(
-        &self,
-        _hl: &crate::syntax::SyntaxHighlighter,
-    ) -> crate::error::Result<Vec<DiffFile>> {
-        Ok(Vec::new())
-    }
     fn fetch_context_lines(
         &self,
         _path: &std::path::Path,

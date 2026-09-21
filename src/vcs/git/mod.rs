@@ -284,24 +284,27 @@ impl VcsBackend for GitBackend {
         }
     }
 
-    fn get_working_tree_diff(&self, highlighter: &SyntaxHighlighter) -> Result<Vec<DiffFile>> {
+    fn get_working_tree_diff(
+        &self,
+        highlight: Option<&SyntaxHighlighter>,
+    ) -> Result<Vec<DiffFile>> {
         match self {
-            Self::Libgit2(backend) => backend.get_working_tree_diff(highlighter),
-            Self::Cli(backend) => backend.get_working_tree_diff(highlighter),
+            Self::Libgit2(backend) => backend.get_working_tree_diff(highlight),
+            Self::Cli(backend) => backend.get_working_tree_diff(highlight),
         }
     }
 
-    fn get_staged_diff(&self, highlighter: &SyntaxHighlighter) -> Result<Vec<DiffFile>> {
+    fn get_staged_diff(&self, highlight: Option<&SyntaxHighlighter>) -> Result<Vec<DiffFile>> {
         match self {
-            Self::Libgit2(backend) => backend.get_staged_diff(highlighter),
-            Self::Cli(backend) => backend.get_staged_diff(highlighter),
+            Self::Libgit2(backend) => backend.get_staged_diff(highlight),
+            Self::Cli(backend) => backend.get_staged_diff(highlight),
         }
     }
 
-    fn get_unstaged_diff(&self, highlighter: &SyntaxHighlighter) -> Result<Vec<DiffFile>> {
+    fn get_unstaged_diff(&self, highlight: Option<&SyntaxHighlighter>) -> Result<Vec<DiffFile>> {
         match self {
-            Self::Libgit2(backend) => backend.get_unstaged_diff(highlighter),
-            Self::Cli(backend) => backend.get_unstaged_diff(highlighter),
+            Self::Libgit2(backend) => backend.get_unstaged_diff(highlight),
+            Self::Cli(backend) => backend.get_unstaged_diff(highlight),
         }
     }
 
@@ -374,11 +377,11 @@ impl VcsBackend for GitBackend {
     fn get_commit_range_diff(
         &self,
         revision_range: &ResolvedRevisionRange<'_>,
-        highlighter: &SyntaxHighlighter,
+        highlight: Option<&SyntaxHighlighter>,
     ) -> Result<Vec<DiffFile>> {
         match self {
-            Self::Libgit2(backend) => backend.get_commit_range_diff(revision_range, highlighter),
-            Self::Cli(backend) => backend.get_commit_range_diff(revision_range, highlighter),
+            Self::Libgit2(backend) => backend.get_commit_range_diff(revision_range, highlight),
+            Self::Cli(backend) => backend.get_commit_range_diff(revision_range, highlight),
         }
     }
 
@@ -392,15 +395,13 @@ impl VcsBackend for GitBackend {
     fn get_working_tree_with_commits_diff(
         &self,
         commit_ids: &[String],
-        highlighter: &SyntaxHighlighter,
+        highlight: Option<&SyntaxHighlighter>,
     ) -> Result<Vec<DiffFile>> {
         match self {
             Self::Libgit2(backend) => {
-                backend.get_working_tree_with_commits_diff(commit_ids, highlighter)
+                backend.get_working_tree_with_commits_diff(commit_ids, highlight)
             }
-            Self::Cli(backend) => {
-                backend.get_working_tree_with_commits_diff(commit_ids, highlighter)
-            }
+            Self::Cli(backend) => backend.get_working_tree_with_commits_diff(commit_ids, highlight),
         }
     }
 
@@ -653,17 +654,16 @@ mod tests {
             let highlighter = SyntaxHighlighter::default();
             let explicit = backend.resolve_revision_range("HEAD").unwrap();
             let files = match target {
-                "explicit" => backend.get_commit_range_diff(&explicit, &highlighter),
+                "explicit" => backend.get_commit_range_diff(&explicit, Some(&highlighter)),
                 "list" => backend.get_commit_range_diff(
                     &ResolvedRevisionRange::from_owned_commit_ids(
                         explicit.commit_ids.to_vec(),
                         super::super::traits::RevisionDiffTarget::CommitList,
                     ),
-                    &highlighter,
+                    Some(&highlighter),
                 ),
-                "worktree" => {
-                    backend.get_working_tree_with_commits_diff(&explicit.commit_ids, &highlighter)
-                }
+                "worktree" => backend
+                    .get_working_tree_with_commits_diff(&explicit.commit_ids, Some(&highlighter)),
                 _ => unreachable!(),
             }
             .unwrap_or_else(|error| panic!("{format} {target} root diff failed: {error}"));
@@ -705,7 +705,7 @@ mod tests {
         let range = backend
             .resolve_revision_range(&format!("{first}..{second}"))
             .unwrap();
-        assert_eq!(range.commit_ids.as_ref(), &[second.clone()]);
+        assert_eq!(range.commit_ids.as_ref(), std::slice::from_ref(&second));
         assert_eq!(
             backend
                 .get_commits_info(&[first.clone(), second.clone()])
@@ -713,7 +713,9 @@ mod tests {
                 .len(),
             2
         );
-        let files = backend.get_commit_range_diff(&range, &highlighter).unwrap();
+        let files = backend
+            .get_commit_range_diff(&range, Some(&highlighter))
+            .unwrap();
         assert_eq!(files.len(), 1);
         assert_eq!(files[0].status, FileStatus::Modified);
         let context = backend
@@ -730,10 +732,19 @@ mod tests {
         fs::write(root.join("src/file.txt"), "one\ntwo\nstaged\n").unwrap();
         run_git_command(root, &["add", "."]).unwrap();
         fs::write(root.join("src/file.txt"), "one\ntwo\nstaged\nunstaged\n").unwrap();
-        assert_eq!(backend.get_staged_diff(&highlighter).unwrap().len(), 1);
-        assert_eq!(backend.get_unstaged_diff(&highlighter).unwrap().len(), 1);
         assert_eq!(
-            backend.get_working_tree_diff(&highlighter).unwrap().len(),
+            backend.get_staged_diff(Some(&highlighter)).unwrap().len(),
+            1
+        );
+        assert_eq!(
+            backend.get_unstaged_diff(Some(&highlighter)).unwrap().len(),
+            1
+        );
+        assert_eq!(
+            backend
+                .get_working_tree_diff(Some(&highlighter))
+                .unwrap()
+                .len(),
             1
         );
         assert_eq!(

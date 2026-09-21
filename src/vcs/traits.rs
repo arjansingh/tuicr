@@ -250,18 +250,31 @@ pub trait VcsBackend: Send {
         false
     }
 
-    /// Get the working tree diff (staged + unstaged changes)
-    fn get_working_tree_diff(&self, highlighter: &SyntaxHighlighter) -> Result<Vec<DiffFile>>;
+    /// Get the working tree diff (staged + unstaged changes).
+    ///
+    /// `highlight`: `Some(highlighter)` also runs the container-grammar
+    /// full-file highlight pass (Vue/Svelte/Astro/MDX); `None` skips it
+    /// entirely. Per-hunk coloring is unaffected either way — it always
+    /// runs later, at render time. Callers that only need `DiffFile`s to
+    /// compute a fingerprint (the diff-watch probe) should pass `None`.
+    fn get_working_tree_diff(
+        &self,
+        _highlight: Option<&SyntaxHighlighter>,
+    ) -> Result<Vec<DiffFile>> {
+        Err(crate::error::TuicrError::UnsupportedOperation(
+            "Working tree diff not supported for this VCS".into(),
+        ))
+    }
 
-    /// Get the staged diff (index vs HEAD)
-    fn get_staged_diff(&self, _highlighter: &SyntaxHighlighter) -> Result<Vec<DiffFile>> {
+    /// Get the staged diff (index vs HEAD). See `get_working_tree_diff` for `highlight`.
+    fn get_staged_diff(&self, _highlight: Option<&SyntaxHighlighter>) -> Result<Vec<DiffFile>> {
         Err(crate::error::TuicrError::UnsupportedOperation(
             "Staged diff not supported for this VCS".into(),
         ))
     }
 
-    /// Get the unstaged diff (working tree vs index)
-    fn get_unstaged_diff(&self, _highlighter: &SyntaxHighlighter) -> Result<Vec<DiffFile>> {
+    /// Get the unstaged diff (working tree vs index). See `get_working_tree_diff` for `highlight`.
+    fn get_unstaged_diff(&self, _highlight: Option<&SyntaxHighlighter>) -> Result<Vec<DiffFile>> {
         Err(crate::error::TuicrError::UnsupportedOperation(
             "Unstaged diff not supported for this VCS".into(),
         ))
@@ -324,7 +337,7 @@ pub trait VcsBackend: Send {
     fn get_commit_range_diff(
         &self,
         _revision_range: &ResolvedRevisionRange<'_>,
-        _highlighter: &SyntaxHighlighter,
+        _highlight: Option<&SyntaxHighlighter>,
     ) -> Result<Vec<DiffFile>> {
         Err(crate::error::TuicrError::UnsupportedOperation(
             "Commit range diff not supported for this VCS".into(),
@@ -343,7 +356,7 @@ pub trait VcsBackend: Send {
     fn get_working_tree_with_commits_diff(
         &self,
         _commit_ids: &[String],
-        _highlighter: &SyntaxHighlighter,
+        _highlight: Option<&SyntaxHighlighter>,
     ) -> Result<Vec<DiffFile>> {
         Err(crate::error::TuicrError::UnsupportedOperation(
             "Working tree + commits diff not supported for this VCS".into(),

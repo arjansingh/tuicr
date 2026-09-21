@@ -32,7 +32,10 @@ impl VcsBackend for PrNoopVcs {
         &self.info
     }
 
-    fn get_working_tree_diff(&self, _highlighter: &SyntaxHighlighter) -> Result<Vec<DiffFile>> {
+    fn get_working_tree_diff(
+        &self,
+        _highlight: Option<&SyntaxHighlighter>,
+    ) -> Result<Vec<DiffFile>> {
         Err(TuicrError::UnsupportedOperation(
             "PR mode does not read from the local working tree".to_string(),
         ))
@@ -97,7 +100,7 @@ mod tests {
         let vcs = PrNoopVcs::new(info());
         // when
         let err = vcs
-            .get_working_tree_diff(&SyntaxHighlighter::default())
+            .get_working_tree_diff(Some(&SyntaxHighlighter::default()))
             .unwrap_err();
         // then
         assert!(

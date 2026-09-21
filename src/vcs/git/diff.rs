@@ -13,17 +13,17 @@ use crate::vcs::{enhance_with_full_file_highlight, tabify};
 pub fn get_working_tree_diff(
     repo: &Repository,
     whitespace_mode: &DiffWhitespaceMode,
-    highlighter: &SyntaxHighlighter,
+    highlight: Option<&SyntaxHighlighter>,
 ) -> Result<Vec<DiffFile>> {
     materialize_diff(whitespace_mode, |comparison| {
-        get_working_tree_diff_once(repo, comparison, highlighter)
+        get_working_tree_diff_once(repo, comparison, highlight)
     })
 }
 
 fn get_working_tree_diff_once(
     repo: &Repository,
     comparison: WhitespaceComparison,
-    highlighter: &SyntaxHighlighter,
+    highlight: Option<&SyntaxHighlighter>,
 ) -> Result<Vec<DiffFile>> {
     // Unborn HEAD (fresh `git init` / `git clone` of an empty remote) has no
     // tree to compare against; diff against an empty baseline so freshly
@@ -37,15 +37,17 @@ fn get_working_tree_diff_once(
 
     let diff = repo.diff_tree_to_workdir_with_index(head.as_ref(), Some(&mut opts))?;
     let mut files = parse_diff(&diff)?;
-    enhance_with_full_file_highlight(
-        &mut files,
-        highlighter,
-        |path| {
-            head.as_ref()
-                .and_then(|tree| read_path_from_tree(repo, tree, path))
-        },
-        |path| read_path_from_workdir(repo, path),
-    );
+    if let Some(highlighter) = highlight {
+        enhance_with_full_file_highlight(
+            &mut files,
+            highlighter,
+            |path| {
+                head.as_ref()
+                    .and_then(|tree| read_path_from_tree(repo, tree, path))
+            },
+            |path| read_path_from_workdir(repo, path),
+        );
+    }
     Ok(files)
 }
 
@@ -54,17 +56,17 @@ fn get_working_tree_diff_once(
 pub fn get_staged_diff(
     repo: &Repository,
     whitespace_mode: &DiffWhitespaceMode,
-    highlighter: &SyntaxHighlighter,
+    highlight: Option<&SyntaxHighlighter>,
 ) -> Result<Vec<DiffFile>> {
     materialize_diff(whitespace_mode, |comparison| {
-        get_staged_diff_once(repo, comparison, highlighter)
+        get_staged_diff_once(repo, comparison, highlight)
     })
 }
 
 fn get_staged_diff_once(
     repo: &Repository,
     comparison: WhitespaceComparison,
-    highlighter: &SyntaxHighlighter,
+    highlight: Option<&SyntaxHighlighter>,
 ) -> Result<Vec<DiffFile>> {
     let head = repo.head().ok().and_then(|h| h.peel_to_tree().ok());
     let index = repo.index()?;
@@ -72,15 +74,17 @@ fn get_staged_diff_once(
 
     let diff = repo.diff_tree_to_index(head.as_ref(), Some(&index), Some(&mut opts))?;
     let mut files = parse_diff(&diff)?;
-    enhance_with_full_file_highlight(
-        &mut files,
-        highlighter,
-        |path| {
-            head.as_ref()
-                .and_then(|tree| read_path_from_tree(repo, tree, path))
-        },
-        |path| read_path_from_index(repo, &index, path),
-    );
+    if let Some(highlighter) = highlight {
+        enhance_with_full_file_highlight(
+            &mut files,
+            highlighter,
+            |path| {
+                head.as_ref()
+                    .and_then(|tree| read_path_from_tree(repo, tree, path))
+            },
+            |path| read_path_from_index(repo, &index, path),
+        );
+    }
     Ok(files)
 }
 
@@ -127,17 +131,17 @@ pub fn list_changed_paths(repo: &Repository, kind: ChangeKind) -> Result<Vec<Pat
 pub fn get_unstaged_diff(
     repo: &Repository,
     whitespace_mode: &DiffWhitespaceMode,
-    highlighter: &SyntaxHighlighter,
+    highlight: Option<&SyntaxHighlighter>,
 ) -> Result<Vec<DiffFile>> {
     materialize_diff(whitespace_mode, |comparison| {
-        get_unstaged_diff_once(repo, comparison, highlighter)
+        get_unstaged_diff_once(repo, comparison, highlight)
     })
 }
 
 fn get_unstaged_diff_once(
     repo: &Repository,
     comparison: WhitespaceComparison,
-    highlighter: &SyntaxHighlighter,
+    highlight: Option<&SyntaxHighlighter>,
 ) -> Result<Vec<DiffFile>> {
     let index = repo.index()?;
     let mut opts = diff_options(comparison);
@@ -147,12 +151,14 @@ fn get_unstaged_diff_once(
 
     let diff = repo.diff_index_to_workdir(Some(&index), Some(&mut opts))?;
     let mut files = parse_diff(&diff)?;
-    enhance_with_full_file_highlight(
-        &mut files,
-        highlighter,
-        |path| read_path_from_index(repo, &index, path),
-        |path| read_path_from_workdir(repo, path),
-    );
+    if let Some(highlighter) = highlight {
+        enhance_with_full_file_highlight(
+            &mut files,
+            highlighter,
+            |path| read_path_from_index(repo, &index, path),
+            |path| read_path_from_workdir(repo, path),
+        );
+    }
     Ok(files)
 }
 
@@ -163,10 +169,10 @@ pub fn get_commit_range_diff(
     repo: &Repository,
     revision_range: &ResolvedRevisionRange<'_>,
     whitespace_mode: &DiffWhitespaceMode,
-    highlighter: &SyntaxHighlighter,
+    highlight: Option<&SyntaxHighlighter>,
 ) -> Result<Vec<DiffFile>> {
     materialize_diff(whitespace_mode, |comparison| {
-        get_commit_range_diff_once(repo, revision_range, comparison, highlighter)
+        get_commit_range_diff_once(repo, revision_range, comparison, highlight)
     })
 }
 
@@ -174,7 +180,7 @@ fn get_commit_range_diff_once(
     repo: &Repository,
     revision_range: &ResolvedRevisionRange<'_>,
     comparison: WhitespaceComparison,
-    highlighter: &SyntaxHighlighter,
+    highlight: Option<&SyntaxHighlighter>,
 ) -> Result<Vec<DiffFile>> {
     let (old_tree, new_tree) = match &revision_range.diff_target {
         RevisionDiffTarget::CommitList => {
@@ -190,7 +196,7 @@ fn get_commit_range_diff_once(
         }
     };
 
-    diff_commit_trees(repo, old_tree, new_tree, comparison, highlighter)
+    diff_commit_trees(repo, old_tree, new_tree, comparison, highlight)
 }
 
 fn commit_list_range_trees<'repo>(
@@ -228,22 +234,24 @@ fn diff_commit_trees(
     old_tree: Option<git2::Tree<'_>>,
     new_tree: git2::Tree<'_>,
     comparison: WhitespaceComparison,
-    highlighter: &SyntaxHighlighter,
+    highlight: Option<&SyntaxHighlighter>,
 ) -> Result<Vec<DiffFile>> {
     let mut opts = diff_options(comparison);
 
     let diff = repo.diff_tree_to_tree(old_tree.as_ref(), Some(&new_tree), Some(&mut opts))?;
     let mut files = parse_diff(&diff)?;
-    enhance_with_full_file_highlight(
-        &mut files,
-        highlighter,
-        |path| {
-            old_tree
-                .as_ref()
-                .and_then(|tree| read_path_from_tree(repo, tree, path))
-        },
-        |path| read_path_from_tree(repo, &new_tree, path),
-    );
+    if let Some(highlighter) = highlight {
+        enhance_with_full_file_highlight(
+            &mut files,
+            highlighter,
+            |path| {
+                old_tree
+                    .as_ref()
+                    .and_then(|tree| read_path_from_tree(repo, tree, path))
+            },
+            |path| read_path_from_tree(repo, &new_tree, path),
+        );
+    }
     Ok(files)
 }
 
@@ -253,10 +261,10 @@ pub fn get_working_tree_with_commits_diff(
     repo: &Repository,
     commit_ids: &[String],
     whitespace_mode: &DiffWhitespaceMode,
-    highlighter: &SyntaxHighlighter,
+    highlight: Option<&SyntaxHighlighter>,
 ) -> Result<Vec<DiffFile>> {
     materialize_diff(whitespace_mode, |comparison| {
-        get_working_tree_with_commits_diff_once(repo, commit_ids, comparison, highlighter)
+        get_working_tree_with_commits_diff_once(repo, commit_ids, comparison, highlight)
     })
 }
 
@@ -264,7 +272,7 @@ fn get_working_tree_with_commits_diff_once(
     repo: &Repository,
     commit_ids: &[String],
     comparison: WhitespaceComparison,
-    highlighter: &SyntaxHighlighter,
+    highlight: Option<&SyntaxHighlighter>,
 ) -> Result<Vec<DiffFile>> {
     if commit_ids.is_empty() {
         return Err(TuicrError::NoChanges);
@@ -286,16 +294,18 @@ fn get_working_tree_with_commits_diff_once(
 
     let diff = repo.diff_tree_to_workdir_with_index(old_tree.as_ref(), Some(&mut opts))?;
     let mut files = parse_diff(&diff)?;
-    enhance_with_full_file_highlight(
-        &mut files,
-        highlighter,
-        |path| {
-            old_tree
-                .as_ref()
-                .and_then(|tree| read_path_from_tree(repo, tree, path))
-        },
-        |path| read_path_from_workdir(repo, path),
-    );
+    if let Some(highlighter) = highlight {
+        enhance_with_full_file_highlight(
+            &mut files,
+            highlighter,
+            |path| {
+                old_tree
+                    .as_ref()
+                    .and_then(|tree| read_path_from_tree(repo, tree, path))
+            },
+            |path| read_path_from_workdir(repo, path),
+        );
+    }
     Ok(files)
 }
 
@@ -500,7 +510,7 @@ mod tests {
         let files = get_working_tree_diff(
             &repo,
             &DiffWhitespaceMode::Normal,
-            &SyntaxHighlighter::default(),
+            Some(&SyntaxHighlighter::default()),
         )
         .expect("failed to get diff");
 
@@ -542,8 +552,9 @@ mod tests {
         fs::write(temp_dir.path().join("App.vue"), &edited).expect("failed to update file");
 
         let highlighter = SyntaxHighlighter::default();
-        let mut files = get_working_tree_diff(&repo, &DiffWhitespaceMode::Normal, &highlighter)
-            .expect("failed to get diff");
+        let mut files =
+            get_working_tree_diff(&repo, &DiffWhitespaceMode::Normal, Some(&highlighter))
+                .expect("failed to get diff");
 
         let pending = files[0]
             .hunks
@@ -592,7 +603,7 @@ mod tests {
         let files = get_working_tree_diff(
             &repo,
             &DiffWhitespaceMode::Normal,
-            &SyntaxHighlighter::default(),
+            Some(&SyntaxHighlighter::default()),
         )
         .expect("failed to get diff");
         assert_eq!(files.len(), 1);
@@ -629,11 +640,11 @@ mod tests {
 
         let highlighter = SyntaxHighlighter::default();
 
-        let unstaged = get_unstaged_diff(&repo, &DiffWhitespaceMode::Normal, &highlighter)
+        let unstaged = get_unstaged_diff(&repo, &DiffWhitespaceMode::Normal, Some(&highlighter))
             .expect("unstaged diff failed");
         assert_eq!(unstaged.len(), 1);
         assert!(matches!(
-            get_staged_diff(&repo, &DiffWhitespaceMode::Normal, &highlighter),
+            get_staged_diff(&repo, &DiffWhitespaceMode::Normal, Some(&highlighter)),
             Err(TuicrError::NoChanges)
         ));
 
@@ -643,11 +654,11 @@ mod tests {
             .expect("failed to add file to index");
         index.write().expect("failed to write index");
 
-        let staged = get_staged_diff(&repo, &DiffWhitespaceMode::Normal, &highlighter)
+        let staged = get_staged_diff(&repo, &DiffWhitespaceMode::Normal, Some(&highlighter))
             .expect("staged diff failed");
         assert_eq!(staged.len(), 1);
         assert!(matches!(
-            get_unstaged_diff(&repo, &DiffWhitespaceMode::Normal, &highlighter),
+            get_unstaged_diff(&repo, &DiffWhitespaceMode::Normal, Some(&highlighter)),
             Err(TuicrError::NoChanges)
         ));
     }
@@ -667,7 +678,7 @@ mod tests {
         let files = get_working_tree_diff(
             &repo,
             &DiffWhitespaceMode::Normal,
-            &SyntaxHighlighter::default(),
+            Some(&SyntaxHighlighter::default()),
         )
         .expect("unborn HEAD should produce a diff against an empty tree");
 
@@ -690,7 +701,7 @@ mod tests {
         let files = get_working_tree_diff(
             &repo,
             &DiffWhitespaceMode::IgnoreAll,
-            &SyntaxHighlighter::default(),
+            Some(&SyntaxHighlighter::default()),
         )
         .expect("whitespace-only edit may surface as a no-op diff file");
         assert_eq!(files.len(), 1);
@@ -702,7 +713,7 @@ mod tests {
         let files = get_working_tree_diff(
             &repo,
             &DiffWhitespaceMode::IgnoreAll,
-            &SyntaxHighlighter::default(),
+            Some(&SyntaxHighlighter::default()),
         )
         .expect("non-whitespace edit should still produce a diff");
         assert_eq!(files.len(), 1);
@@ -727,7 +738,7 @@ mod tests {
         let files = get_working_tree_diff(
             &repo,
             &DiffWhitespaceMode::IgnoreAll,
-            &SyntaxHighlighter::default(),
+            Some(&SyntaxHighlighter::default()),
         )
         .expect("mode-only edit should still produce a diff");
         assert_eq!(files.len(), 1);
@@ -870,10 +881,10 @@ mod tests {
 
         for (label, backend) in backends {
             let highlighted = backend
-                .get_working_tree_diff(&SyntaxHighlighter::default())
+                .get_working_tree_diff(Some(&SyntaxHighlighter::default()))
                 .unwrap_or_else(|e| panic!("{label}: highlighted fetch failed: {e}"));
             let plain = backend
-                .get_working_tree_diff(&SyntaxHighlighter::plain())
+                .get_working_tree_diff(Some(&SyntaxHighlighter::plain()))
                 .unwrap_or_else(|e| panic!("{label}: plain fetch failed: {e}"));
 
             assert_files_match(&highlighted, &plain, label);
@@ -1041,7 +1052,7 @@ mod tests {
 
         for (label, backend) in mixed_backends(repo.path(), auto_mode()) {
             let files = backend
-                .get_working_tree_diff(&highlighter)
+                .get_working_tree_diff(Some(&highlighter))
                 .unwrap_or_else(|e| panic!("{label}: auto working tree failed: {e}"));
             assert_auto_working_tree(&files, label);
             assert_has_hunks(&files, "extra.custom", label);
@@ -1049,7 +1060,7 @@ mod tests {
 
         for (label, backend) in mixed_backends(repo.path(), DiffWhitespaceMode::IgnoreAll) {
             let files = backend
-                .get_working_tree_diff(&highlighter)
+                .get_working_tree_diff(Some(&highlighter))
                 .unwrap_or_else(|e| panic!("{label}: ignore-all working tree failed: {e}"));
             assert_ignored_whitespace(&files, "data.json", label);
             assert_ignored_whitespace(&files, "app.py", label);
@@ -1059,7 +1070,7 @@ mod tests {
 
         for (label, backend) in mixed_backends(repo.path(), DiffWhitespaceMode::Normal) {
             let files = backend
-                .get_working_tree_diff(&highlighter)
+                .get_working_tree_diff(Some(&highlighter))
                 .unwrap_or_else(|e| panic!("{label}: normal working tree failed: {e}"));
             assert_has_hunks(&files, "data.json", label);
             assert_has_hunks(&files, "lib.rs", label);
@@ -1068,7 +1079,7 @@ mod tests {
 
         for (label, backend) in mixed_backends(repo.path(), auto_with_overrides()) {
             let files = backend
-                .get_working_tree_diff(&highlighter)
+                .get_working_tree_diff(Some(&highlighter))
                 .unwrap_or_else(|e| panic!("{label}: override working tree failed: {e}"));
             assert_ignored_whitespace(&files, "data.json", label);
             assert_has_hunks(&files, "lib.rs", label);
@@ -1088,23 +1099,23 @@ mod tests {
 
         for (label, backend) in mixed_backends(repo.path(), auto_mode()) {
             let staged = backend
-                .get_staged_diff(&highlighter)
+                .get_staged_diff(Some(&highlighter))
                 .unwrap_or_else(|e| panic!("{label}: staged failed: {e}"));
             assert_visible(&staged, "added.txt", &format!("{label} staged"));
 
             let unstaged = backend
-                .get_unstaged_diff(&highlighter)
+                .get_unstaged_diff(Some(&highlighter))
                 .unwrap_or_else(|e| panic!("{label}: unstaged failed: {e}"));
             assert_ignored_whitespace(&unstaged, "data.json", &format!("{label} unstaged"));
             assert_has_hunks(&unstaged, "app.py", &format!("{label} unstaged"));
 
             let range_files = backend
-                .get_commit_range_diff(&range, &highlighter)
+                .get_commit_range_diff(&range, Some(&highlighter))
                 .unwrap_or_else(|e| panic!("{label}: commit range failed: {e}"));
             assert_has_hunks(&range_files, "keep.txt", &format!("{label} range"));
 
             let combined = backend
-                .get_working_tree_with_commits_diff(&[ids[1].clone()], &highlighter)
+                .get_working_tree_with_commits_diff(&[ids[1].clone()], Some(&highlighter))
                 .unwrap_or_else(|e| panic!("{label}: combined failed: {e}"));
             assert_ignored_whitespace(&combined, "data.json", &format!("{label} combined"));
             assert_has_hunks(&combined, "keep.txt", &format!("{label} combined"));
@@ -1122,12 +1133,12 @@ mod tests {
         index.add_path(Path::new("app.py")).unwrap();
         index.write().unwrap();
 
-        let files = get_working_tree_diff(&repo, &auto_mode(), &SyntaxHighlighter::default())
+        let files = get_working_tree_diff(&repo, &auto_mode(), Some(&SyntaxHighlighter::default()))
             .expect("unborn HEAD auto diff");
         assert_visible(&files, "data.json", "unborn");
         assert_visible(&files, "app.py", "unborn");
 
-        let staged = get_staged_diff(&repo, &auto_mode(), &SyntaxHighlighter::default())
+        let staged = get_staged_diff(&repo, &auto_mode(), Some(&SyntaxHighlighter::default()))
             .expect("unborn staged auto diff");
         assert_visible(&staged, "data.json", "unborn staged");
 
@@ -1138,7 +1149,7 @@ mod tests {
         );
         for (label, backend) in mixed_backends(repo.path(), auto_mode()) {
             let files = backend
-                .get_commit_range_diff(&subset, &SyntaxHighlighter::default())
+                .get_commit_range_diff(&subset, Some(&SyntaxHighlighter::default()))
                 .unwrap_or_else(|e| panic!("{label}: subset failed: {e}"));
             assert_eq!(
                 files.len(),
@@ -1221,7 +1232,9 @@ mod tests {
             .expect("open repo");
 
         let highlighter = SyntaxHighlighter::default();
-        let mut files = backend.get_working_tree_diff(&highlighter).expect("diff");
+        let mut files = backend
+            .get_working_tree_diff(Some(&highlighter))
+            .expect("diff");
         crate::vcs::color_all_hunks(&mut files, &highlighter);
 
         let hunks: usize = files.iter().map(|f| f.hunks.len()).sum();
