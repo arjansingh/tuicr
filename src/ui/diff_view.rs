@@ -165,6 +165,19 @@ pub(super) fn diff_visible_range(app: &App, inner: Rect) -> (usize, usize) {
 }
 
 pub(super) fn render_diff_view(frame: &mut Frame, app: &mut App, area: Rect) {
+    // Coloring ran against the scroll offset held before this call. Drawing can move
+    // the offset to keep a growing comment box on screen, which lands the viewport on
+    // hunks nothing colored, so draw once more after coloring the new window.
+    let offset_before_render = app.diff_state.scroll_offset;
+    render_diff_view_once(frame, app, area);
+    if app.diff_state.scroll_offset == offset_before_render {
+        return;
+    }
+    app.color_visible_hunks(frame.area().height as usize);
+    render_diff_view_once(frame, app, area);
+}
+
+fn render_diff_view_once(frame: &mut Frame, app: &mut App, area: Rect) {
     match app.diff_view_mode {
         DiffViewMode::Unified => render_unified_diff(frame, app, area),
         DiffViewMode::SideBySide => render_side_by_side_diff(frame, app, area),
