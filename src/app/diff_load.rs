@@ -31,7 +31,19 @@ impl App {
     /// so that comments on different commits' messages get distinct session keys
     /// (the session indexes comments by path) and the exported review records
     /// which commit each commit-message comment belongs to.
-    pub(in crate::app) fn insert_commit_message_if_single(&mut self) {
+    /// Finish a range load on an app that `build` already sorted and counted.
+    pub(in crate::app) fn finish_range_load(&mut self) {
+        // The sort clears the line-count cache, so run it only when the
+        // inserted message file has shifted the indices that cache keys on.
+        if self.insert_commit_message_if_single() {
+            self.sort_files_by_directory(true);
+        }
+        self.expand_all_dirs();
+        self.rebuild_annotations();
+    }
+
+    /// Returns whether a commit-message file went in.
+    pub(in crate::app) fn insert_commit_message_if_single(&mut self) -> bool {
         self.diff_files.retain(|f| !f.is_commit_message);
 
         let commit = if let Some((start, end)) = self.commit_selection_range {
@@ -46,9 +58,9 @@ impl App {
             None
         };
 
-        let Some(commit) = commit else { return };
+        let Some(commit) = commit else { return false };
         if Self::is_special_commit(commit) {
-            return;
+            return false;
         }
 
         let mut full_message = commit.summary.clone();
@@ -95,6 +107,7 @@ impl App {
         };
         self.diff_files.insert(0, commit_msg_file);
         self.session.add_diff_file(&self.diff_files[0]);
+        true
     }
 
     pub(in crate::app) fn is_staged_commit(commit: &CommitInfo) -> bool {

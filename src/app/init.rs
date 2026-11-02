@@ -276,10 +276,7 @@ impl App {
                 ) {
                     app.reload_inline_selection()?;
                 } else {
-                    app.insert_commit_message_if_single();
-                    app.sort_files_by_directory(true);
-                    app.expand_all_dirs();
-                    app.rebuild_annotations();
+                    app.finish_range_load();
                 }
 
                 return Ok(app);
@@ -343,10 +340,7 @@ impl App {
             ) {
                 app.reload_inline_selection()?;
             } else {
-                app.insert_commit_message_if_single();
-                app.sort_files_by_directory(true);
-                app.expand_all_dirs();
-                app.rebuild_annotations();
+                app.finish_range_load();
             }
 
             Ok(app)

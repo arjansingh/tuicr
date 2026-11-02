@@ -1789,3 +1789,124 @@ fn should_defer_start_line_while_there_are_no_annotations() {
     assert!(!app.apply_pending_start_line());
     assert_eq!(app.pending_start_line, Some(5));
 }
+
+struct CountingVcs {
+    info: VcsInfo,
+    line_count_calls: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+}
+
+impl VcsBackend for CountingVcs {
+    fn info(&self) -> &VcsInfo {
+        &self.info
+    }
+
+    fn get_working_tree_diff(&self, _highlighter: &SyntaxHighlighter) -> Result<Vec<DiffFile>> {
+        Err(TuicrError::NoChanges)
+    }
+
+    fn fetch_context_lines(
+        &self,
+        _file_path: &Path,
+        _file_status: FileStatus,
+        _ref_commit: Option<&str>,
+        _start_line: u32,
+        _end_line: u32,
+    ) -> Result<Vec<DiffLine>> {
+        Ok(Vec::new())
+    }
+
+    fn file_line_count(
+        &self,
+        _file_path: &Path,
+        _file_status: FileStatus,
+        _ref_commit: Option<&str>,
+    ) -> Result<u32> {
+        self.line_count_calls
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        Ok(100)
+    }
+}
+
+fn build_counting_app() -> (App, std::sync::Arc<std::sync::atomic::AtomicUsize>) {
+    let line_count_calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let vcs_info = VcsInfo {
+        root_path: PathBuf::from("/tmp"),
+        head_commit: "abc123".to_string(),
+        branch_name: Some("main".to_string()),
+        vcs_type: VcsType::Git,
+    };
+    let session = ReviewSession::new(
+        vcs_info.root_path.clone(),
+        vcs_info.head_commit.clone(),
+        vcs_info.branch_name.clone(),
+        SessionDiffSource::WorkingTree,
+    );
+    let app = App::build(
+        Box::new(CountingVcs {
+            info: vcs_info.clone(),
+            line_count_calls: line_count_calls.clone(),
+        }),
+        vcs_info,
+        Theme::dark(),
+        None,
+        false,
+        vec![
+            make_file_with_hunks("b.rs", vec![make_hunk(1, 2)]),
+            make_file_with_hunks("a.rs", vec![make_hunk(1, 2)]),
+        ],
+        session,
+        DiffSource::WorkingTree,
+        InputMode::Normal,
+        Vec::new(),
+        None,
+        None,
+    )
+    .expect("failed to build test app");
+    (app, line_count_calls)
+}
+
+fn make_commit(id: &str) -> CommitInfo {
+    CommitInfo {
+        id: id.to_string(),
+        short_id: id.to_string(),
+        branch_name: None,
+        summary: "summary".to_string(),
+        body: None,
+        author: "author".to_string(),
+        time: chrono::Utc::now(),
+    }
+}
+
+/// Counting lines loads every file's contents, so a launch must not repeat it.
+#[test]
+fn should_count_each_file_once_when_finishing_a_multi_commit_range_load() {
+    let (mut app, calls) = build_counting_app();
+    app.review_commits = vec![make_commit("one"), make_commit("two")];
+
+    app.finish_range_load();
+
+    assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 2);
+}
+
+/// The inserted message shifts every file index, and the cache keys on index.
+#[test]
+fn should_recount_and_list_the_message_first_when_finishing_a_single_commit_range_load() {
+    let (mut app, calls) = build_counting_app();
+    app.review_commits = vec![make_commit("one")];
+
+    app.finish_range_load();
+
+    assert!(app.diff_files[0].is_commit_message);
+    assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 5);
+}
+
+#[test]
+fn should_keep_the_cursor_at_the_overview_after_finishing_a_range_load() {
+    let (mut app, _calls) = build_counting_app();
+    app.review_commits = vec![make_commit("one"), make_commit("two")];
+
+    app.finish_range_load();
+
+    assert_eq!(app.diff_state.cursor_line, 0);
+    assert_eq!(app.diff_state.scroll_offset, 0);
+}
