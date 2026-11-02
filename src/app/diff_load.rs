@@ -25,16 +25,11 @@ impl App {
         }
     }
 
-    /// If we are viewing a single commit, insert a "Commit Message" DiffFile at index 0.
-    ///
-    /// The synthetic path embeds the commit's short id (`Commit Message (<sha>)`)
-    /// so that comments on different commits' messages get distinct session keys
-    /// (the session indexes comments by path) and the exported review records
-    /// which commit each commit-message comment belongs to.
-    /// Finish a range load on an app that `build` already sorted and counted.
+    /// Add the commit message, build the file tree and build the display rows
+    /// after a range load. `build` has already sorted the files and counted their lines.
     pub(in crate::app) fn finish_range_load(&mut self) {
-        // The sort clears the line-count cache, so run it only when the
-        // inserted message file has shifted the indices that cache keys on.
+        // The sort clears the line-count cache. Run it only when the inserted
+        // message file has changed the file indices that the cache uses as keys.
         if self.insert_commit_message_if_single() {
             self.sort_files_by_directory(true);
         }
@@ -42,7 +37,14 @@ impl App {
         self.rebuild_annotations();
     }
 
-    /// Returns whether a commit-message file went in.
+    /// If we are viewing a single commit, insert a "Commit Message" DiffFile at index 0.
+    ///
+    /// The synthetic path embeds the commit's short id (`Commit Message (<sha>)`)
+    /// so that comments on different commits' messages get distinct session keys
+    /// (the session indexes comments by path) and the exported review records
+    /// which commit each commit-message comment belongs to.
+    ///
+    /// Returns whether it inserted a commit-message file.
     pub(in crate::app) fn insert_commit_message_if_single(&mut self) -> bool {
         self.diff_files.retain(|f| !f.is_commit_message);
 

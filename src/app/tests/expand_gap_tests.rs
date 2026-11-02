@@ -1792,7 +1792,7 @@ fn should_defer_start_line_while_there_are_no_annotations() {
 
 struct CountingVcs {
     info: VcsInfo,
-    line_count_calls: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    line_count_refs: std::sync::Arc<std::sync::Mutex<Vec<Option<String>>>>,
 }
 
 impl VcsBackend for CountingVcs {
@@ -1819,16 +1819,20 @@ impl VcsBackend for CountingVcs {
         &self,
         _file_path: &Path,
         _file_status: FileStatus,
-        _ref_commit: Option<&str>,
+        ref_commit: Option<&str>,
     ) -> Result<u32> {
-        self.line_count_calls
-            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        self.line_count_refs
+            .lock()
+            .unwrap()
+            .push(ref_commit.map(str::to_string));
         Ok(100)
     }
 }
 
-fn build_counting_app() -> (App, std::sync::Arc<std::sync::atomic::AtomicUsize>) {
-    let line_count_calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+type LineCountRefs = std::sync::Arc<std::sync::Mutex<Vec<Option<String>>>>;
+
+fn build_counting_app(commits: &[&str], files: Vec<DiffFile>) -> (App, LineCountRefs) {
+    let line_count_refs = LineCountRefs::default();
     let vcs_info = VcsInfo {
         root_path: PathBuf::from("/tmp"),
         head_commit: "abc123".to_string(),
@@ -1844,25 +1848,29 @@ fn build_counting_app() -> (App, std::sync::Arc<std::sync::atomic::AtomicUsize>)
     let app = App::build(
         Box::new(CountingVcs {
             info: vcs_info.clone(),
-            line_count_calls: line_count_calls.clone(),
+            line_count_refs: line_count_refs.clone(),
         }),
         vcs_info,
         Theme::dark(),
         None,
         false,
-        vec![
-            make_file_with_hunks("b.rs", vec![make_hunk(1, 2)]),
-            make_file_with_hunks("a.rs", vec![make_hunk(1, 2)]),
-        ],
+        files,
         session,
-        DiffSource::WorkingTree,
+        DiffSource::CommitRange(commits.iter().map(|c| c.to_string()).collect()),
         InputMode::Normal,
         Vec::new(),
         None,
         None,
     )
     .expect("failed to build test app");
-    (app, line_count_calls)
+    (app, line_count_refs)
+}
+
+fn two_files() -> Vec<DiffFile> {
+    vec![
+        make_file_with_hunks("b.rs", vec![make_hunk(1, 2)]),
+        make_file_with_hunks("a.rs", vec![make_hunk(1, 2)]),
+    ]
 }
 
 fn make_commit(id: &str) -> CommitInfo {
@@ -1877,33 +1885,36 @@ fn make_commit(id: &str) -> CommitInfo {
     }
 }
 
-/// Counting lines loads every file's contents, so a launch must not repeat it.
+/// Counting lines loads each file's contents, so a launch counts each file once.
 #[test]
-fn should_count_each_file_once_when_finishing_a_multi_commit_range_load() {
-    let (mut app, calls) = build_counting_app();
-    app.review_commits = vec![make_commit("one"), make_commit("two")];
+fn should_count_each_file_once_at_the_newest_commit_when_finishing_a_multi_commit_range_load() {
+    let (mut app, refs) = build_counting_app(&["one", "two"], two_files());
+    app.review_commits = vec![make_commit("two"), make_commit("one")];
 
     app.finish_range_load();
 
-    assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 2);
+    assert_eq!(
+        *refs.lock().unwrap(),
+        vec![Some("two".to_string()), Some("two".to_string())]
+    );
 }
 
-/// The inserted message shifts every file index, and the cache keys on index.
+/// The inserted message changes every file index, and the cache uses indices as keys.
 #[test]
 fn should_recount_and_list_the_message_first_when_finishing_a_single_commit_range_load() {
-    let (mut app, calls) = build_counting_app();
+    let (mut app, refs) = build_counting_app(&["one"], two_files());
     app.review_commits = vec![make_commit("one")];
 
     app.finish_range_load();
 
     assert!(app.diff_files[0].is_commit_message);
-    assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 5);
+    assert_eq!(refs.lock().unwrap().len(), 5);
 }
 
 #[test]
 fn should_keep_the_cursor_at_the_overview_after_finishing_a_range_load() {
-    let (mut app, _calls) = build_counting_app();
-    app.review_commits = vec![make_commit("one"), make_commit("two")];
+    let (mut app, _refs) = build_counting_app(&["one", "two"], two_files());
+    app.review_commits = vec![make_commit("two"), make_commit("one")];
 
     app.finish_range_load();
 
